@@ -82,6 +82,8 @@ def main() -> None:
     for tool in tools:
         logger.info("Class Name: %s", tool.__name__)
         logger.info("Description: %s", tool.__doc__)
+        logger.info("Name: %s", tool.name)
+        logger.info("Text description: %s", tool.description)
         logger.info("--------------------")
 
     # get human input
