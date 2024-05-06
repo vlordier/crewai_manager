@@ -10,8 +10,11 @@ readme = "README.md"
 version = "0.1.0"
 
 [tool.poetry.dependencies]
-crewai = "^0.28.8"
+crewai = "^0.30.0rc6"
+crewai-tools = "^0.2.3"
+instructor = "0.5.2"
 python = ">=3.10,<=3.12"
+python-dotenv = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.7.0"
