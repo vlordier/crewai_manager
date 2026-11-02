@@ -1,5 +1,6 @@
 """ Generates a list of agents and tasks configuration from prompts"""
 
+import inspect
 import logging
 import os
 from typing import Optional
@@ -8,8 +9,6 @@ import instructor
 from crewai_tools import tools
 from dotenv import load_dotenv
 from openai import OpenAI
-
-from models import AgentsList, TasksList
 
 # load environment variables
 load_dotenv()
@@ -34,21 +33,26 @@ def generate_clarifications(task_description: str) -> Optional[str]:
     """
 
     # using task description, generate 5 clarifications
-    clarification_prompt = f"You are a very talented Business Analyst and you have been asked to write a detailed description of this task: {task_description}. Please provide 5 clarifications that you would need to complete the task. And choose the most relevant to start with. Be concise and only ask one question to clarify the task."
+    clarification_system = "You are a very talented Business Analyst and you are looking to understand the task better. You are inquisitive, curious and you aim to get the bottom of things."
+    clarification_prompt = f"You have been asked to write a detailed description of this task: {task_description}. Please provide 5 clarifications that you would need to complete the task. And choose the most relevant to start with. Be concise and only ask one question to clarify the task."
 
-    try:
-        clarifications = client.completions.create(
-            model=openai_model,
-            prompt=clarification_prompt,
-            max_tokens=100,
-            n=5,
-            stop=None,
-        )
-    except Exception as e:
-        logger.error("Failed to generate clarifications: %s", e)
-        return None
+    messages = [
+        {"role": "system", "content": clarification_system},
+        {"role": "user", "content": clarification_prompt},
+    ]
 
-    clarification_question = clarifications.choices[0].text
+    print("Generating clarifications...")
+
+    clarifications = client.chat.completions.create(
+        model=openai_model,
+        messages=messages,
+    )
+    # except Exception as e:
+    #     logger.error("Failed to generate clarifications: %s", e)
+    #     return None
+
+    clarification_question = clarifications.choices[0].message.content
+    print(clarification_question)
     logger.info("Clarification: %s", clarification_question)
     clarification_answer = input(
         "Please provide an answer to the clarification question: "
@@ -56,15 +60,20 @@ def generate_clarifications(task_description: str) -> Optional[str]:
 
     prompt_refinement = f"You are a very talented Business Analyst and you have been asked to write a detailed description of this task: {task_description}. Please provide 5 clarifications that you would need to complete the task. And choose the most relevant to start with. Be concise and only ask one question to clarify the task. Clarification: {clarification_question}. Answer: {clarification_answer}. Please provide a refined task description based on the clarification."
 
+    messages = [
+        {"role": "system", "content": clarification_system},
+        {"role": "user", "content": prompt_refinement},
+    ]
+
     try:
-        refinement = client.completions.create(
-            model=openai_model, prompt=prompt_refinement, max_tokens=100, n=5, stop=None
+        refinement = client.chat.completions.create(
+            model=openai_model, messages=messages
         )
     except Exception as e:
         logger.error("Failed to generate clarifications: %s", e)
         return None
 
-    refinement_summary = refinement.choices[0].text
+    refinement_summary = refinement.choices[0].message.content
 
     return refinement_summary
 
@@ -73,18 +82,31 @@ def main() -> None:
     """Main function to generate clarifications for a task description"""
 
     # the AgentList and TaskList have the following format: (JSON)
-    agentslist_json = AgentsList.to_json()
-    taskslist_json = TasksList.to_json()
+    # agent_json = json.dumps(Agent.model_json_schema(), indent=2)
+    # task_json = json.dumps(Task.model_json_schema(), indent=2)
 
-    logger.info("AgentList: %s", agentslist_json)
-    logger.info("TaskList: %s", taskslist_json)
+    # logger.info("Agent: %s", agent_json)
+    # logger.info("Task: %s", task_json)
 
-    for tool in tools:
-        logger.info("Class Name: %s", tool.__name__)
-        logger.info("Description: %s", tool.__doc__)
-        logger.info("Name: %s", tool.name)
-        logger.info("Text description: %s", tool.description)
-        logger.info("--------------------")
+    for name, obj in inspect.getmembers(tools):
+        if inspect.isclass(obj):
+            print(f"Class Name: {obj.__name__}")
+
+            # Check that obj has a name attribute
+            if hasattr(obj, "name"):
+                print(f"Name: {obj.name}")
+
+            # Check that obj has a description attribute
+            if hasattr(obj, "description"):
+                print(
+                    f"Text description: {obj.description}"
+                )  # this is a class attribute
+            print("--------------------")
+        # logger.info("Class Name: %s", tool.__name__)
+        # logger.info("Description: %s", tool.__doc__)
+        # logger.info("Name: %s", tool.name)
+        # logger.info("Text description: %s", tool.description)
+        # logger.info("--------------------")
 
     # get human input
     task_description = input("Please describe the task: ")
